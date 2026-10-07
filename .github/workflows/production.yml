@@ -1,0 +1,39 @@
+name: Production deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Production operating mode
+        required: true
+        type: choice
+        options:
+          - stable
+          - degraded
+          - maintenance
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    environment: production
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Authenticate to AWS
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
+        with:
+          role-to-assume: arn:aws:iam::442426887176:role/GitHubProductionDeployRole
+          role-session-name: github-production-deployment
+          aws-region: eu-west-2
+
+      - name: Update production
+        run: |
+          aws lambda update-function-configuration \
+            --function-name payments-api-prod \
+            --environment "Variables={MODE=${{ inputs.mode }}}"
+
+          aws lambda wait function-updated \
+            --function-name payments-api-prod
